@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useCallback } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import './App.css'
 import mikeImg from './assets/MSS.jpeg'
 
@@ -19,75 +19,185 @@ const COLORS = [
 ]
 
 function DrawingModal({ onClose }) {
-  const canvasRef = useRef()
-  const imgRef = useRef()
-  const [color, setColor] = useState(COLORS[0].value)
-  const [ready, setReady] = useState(false)
-  const drawing = useRef(false)
-  const last = useRef(null)
+  const canvasRef   = useRef()
+  const imgRef      = useRef()
+  const containerRef = useRef()
+  const innerRef    = useRef()
 
+  const [color, setColor] = useState(COLORS[0].value)
+  const [mode, setMode]   = useState('draw') // 'draw' | 'move'
+  const [ready, setReady] = useState(false)
+
+  // transform state stored in refs so event handlers don't go stale
+  const t = useRef({ panX: 0, panY: 0, zoom: 1 })
+  const drawingRef   = useRef(false)
+  const lastPos      = useRef(null)
+  const lastTouches  = useRef([])
+  const colorRef     = useRef(color)
+  const modeRef      = useRef(mode)
+
+  useEffect(() => { colorRef.current = color }, [color])
+  useEffect(() => { modeRef.current  = mode  }, [mode])
+
+  // ── setup ──────────────────────────────────────────────────────────────
   useEffect(() => {
     const img = imgRef.current
-    if (img.complete) { setReady(true) }
-    else { img.onload = () => setReady(true) }
+    const init = () => {
+      canvasRef.current.width  = img.naturalWidth
+      canvasRef.current.height = img.naturalHeight
+      setReady(true)
+    }
+    if (img.complete) init(); else img.onload = init
   }, [])
 
-  useEffect(() => {
-    if (!ready) return
-    const canvas = canvasRef.current
-    const img = imgRef.current
-    canvas.width = img.naturalWidth
-    canvas.height = img.naturalHeight
-  }, [ready])
+  // ── helpers ────────────────────────────────────────────────────────────
+  const applyTransform = () => {
+    const { panX, panY, zoom } = t.current
+    innerRef.current.style.transform = `translate(${panX}px,${panY}px) scale(${zoom})`
+  }
 
-  const getPos = (e, canvas) => {
-    const rect = canvas.getBoundingClientRect()
-    const scaleX = canvas.width / rect.width
-    const scaleY = canvas.height / rect.height
-    const src = e.touches ? e.touches[0] : e
-    return {
-      x: (src.clientX - rect.left) * scaleX,
-      y: (src.clientY - rect.top) * scaleY,
+  const clampPan = () => {
+    const { zoom } = t.current
+    const cRect   = containerRef.current.getBoundingClientRect()
+    const img     = imgRef.current
+    const innerH  = cRect.width * img.naturalHeight / img.naturalWidth
+    t.current.panX = Math.min(0, Math.max(cRect.width  - cRect.width  * zoom, t.current.panX))
+    t.current.panY = Math.min(0, Math.max(cRect.height - innerH       * zoom, t.current.panY))
+  }
+
+  const screenToCanvas = (sx, sy) => {
+    const cRect  = containerRef.current.getBoundingClientRect()
+    const canvas = canvasRef.current
+    const img    = imgRef.current
+    const { panX, panY, zoom } = t.current
+    const innerW = cRect.width
+    const innerH = cRect.width * img.naturalHeight / img.naturalWidth
+    const cssX   = (sx - cRect.left - panX) / zoom
+    const cssY   = (sy - cRect.top  - panY) / zoom
+    return { x: cssX * canvas.width / innerW, y: cssY * canvas.height / innerH }
+  }
+
+  const strokeTo = (pos) => {
+    if (!lastPos.current) return
+    const ctx = canvasRef.current.getContext('2d')
+    ctx.beginPath()
+    ctx.moveTo(lastPos.current.x, lastPos.current.y)
+    ctx.lineTo(pos.x, pos.y)
+    ctx.strokeStyle = colorRef.current
+    ctx.lineWidth   = 14
+    ctx.lineCap     = 'round'
+    ctx.lineJoin    = 'round'
+    ctx.stroke()
+    lastPos.current = pos
+  }
+
+  const zoomAround = (sx, sy, scaleFactor) => {
+    const cRect = containerRef.current.getBoundingClientRect()
+    const { panX, panY, zoom } = t.current
+    const cssX   = (sx - cRect.left - panX) / zoom
+    const cssY   = (sy - cRect.top  - panY) / zoom
+    const newZoom = Math.max(1, Math.min(10, zoom * scaleFactor))
+    t.current.panX = sx - cRect.left - cssX * newZoom
+    t.current.panY = sy - cRect.top  - cssY * newZoom
+    t.current.zoom = newZoom
+  }
+
+  // ── touch ──────────────────────────────────────────────────────────────
+  const onTouchStart = (e) => {
+    e.preventDefault()
+    lastTouches.current = Array.from(e.touches)
+    if (e.touches.length === 1 && modeRef.current === 'draw') {
+      drawingRef.current = true
+      lastPos.current = screenToCanvas(e.touches[0].clientX, e.touches[0].clientY)
+    } else {
+      drawingRef.current = false
+      lastPos.current = null
     }
   }
 
-  const startDraw = useCallback((e) => {
+  const onTouchMove = (e) => {
     e.preventDefault()
-    drawing.current = true
-    last.current = getPos(e, canvasRef.current)
+    const touches = Array.from(e.touches)
+    const prev    = lastTouches.current
+
+    if (touches.length === 2 && prev.length >= 1) {
+      // pinch-zoom + pan
+      drawingRef.current = false
+      lastPos.current    = null
+
+      const prevMid = prev.length === 2
+        ? { x: (prev[0].clientX + prev[1].clientX) / 2, y: (prev[0].clientY + prev[1].clientY) / 2 }
+        : { x: prev[0].clientX, y: prev[0].clientY }
+      const currMid = { x: (touches[0].clientX + touches[1].clientX) / 2, y: (touches[0].clientY + touches[1].clientY) / 2 }
+
+      // pan from midpoint drift first
+      t.current.panX += currMid.x - prevMid.x
+      t.current.panY += currMid.y - prevMid.y
+
+      // then zoom around new midpoint
+      if (prev.length === 2) {
+        const prevDist = Math.hypot(prev[0].clientX - prev[1].clientX, prev[0].clientY - prev[1].clientY)
+        const currDist = Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY)
+        if (prevDist > 0) zoomAround(currMid.x, currMid.y, currDist / prevDist)
+      }
+
+      clampPan()
+      applyTransform()
+
+    } else if (touches.length === 1 && prev.length === 1) {
+      if (modeRef.current === 'move') {
+        t.current.panX += touches[0].clientX - prev[0].clientX
+        t.current.panY += touches[0].clientY - prev[0].clientY
+        clampPan()
+        applyTransform()
+      } else if (drawingRef.current) {
+        strokeTo(screenToCanvas(touches[0].clientX, touches[0].clientY))
+      }
+    }
+
+    lastTouches.current = touches
+  }
+
+  const onTouchEnd = (e) => {
+    e.preventDefault()
+    lastTouches.current = Array.from(e.touches)
+    if (e.touches.length === 0) { drawingRef.current = false; lastPos.current = null }
+  }
+
+  // ── mouse (desktop) ────────────────────────────────────────────────────
+  const onMouseDown = (e) => {
+    if (modeRef.current !== 'draw') return
+    drawingRef.current = true
+    lastPos.current = screenToCanvas(e.clientX, e.clientY)
+  }
+  const onMouseMove = (e) => {
+    if (!drawingRef.current) return
+    strokeTo(screenToCanvas(e.clientX, e.clientY))
+  }
+  const onMouseUp = () => { drawingRef.current = false; lastPos.current = null }
+
+  // ── wheel zoom (desktop) ───────────────────────────────────────────────
+  const onWheel = (e) => {
+    e.preventDefault()
+    zoomAround(e.clientX, e.clientY, e.deltaY < 0 ? 1.1 : 0.9)
+    clampPan()
+    applyTransform()
+  }
+  useEffect(() => {
+    const el = containerRef.current
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
   }, [])
 
-  const draw = useCallback((e) => {
-    e.preventDefault()
-    if (!drawing.current) return
-    const canvas = canvasRef.current
-    const ctx = canvas.getContext('2d')
-    const pos = getPos(e, canvas)
-    ctx.beginPath()
-    ctx.moveTo(last.current.x, last.current.y)
-    ctx.lineTo(pos.x, pos.y)
-    ctx.strokeStyle = color
-    ctx.lineWidth = 12
-    ctx.lineCap = 'round'
-    ctx.lineJoin = 'round'
-    ctx.stroke()
-    last.current = pos
-  }, [color])
-
-  const stopDraw = useCallback(() => {
-    drawing.current = false
-    last.current = null
-  }, [])
-
+  // ── download ───────────────────────────────────────────────────────────
   const download = () => {
-    const img = imgRef.current
-    const canvas = canvasRef.current
-    const out = document.createElement('canvas')
-    out.width = img.naturalWidth
+    const img  = imgRef.current
+    const out  = document.createElement('canvas')
+    out.width  = img.naturalWidth
     out.height = img.naturalHeight
-    const ctx = out.getContext('2d')
+    const ctx  = out.getContext('2d')
     ctx.drawImage(img, 0, 0)
-    ctx.drawImage(canvas, 0, 0)
+    ctx.drawImage(canvasRef.current, 0, 0)
     const link = document.createElement('a')
     link.download = 'mike-stamm-sucks.png'
     link.href = out.toDataURL('image/png')
@@ -95,22 +205,26 @@ function DrawingModal({ onClose }) {
   }
 
   return (
-    <div id="modal-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div id="modal-backdrop">
       <div id="modal">
-        <div id="drawing-area">
-          <img ref={imgRef} src={mikeImg} alt="Mike Stamm" id="modal-img" crossOrigin="anonymous" />
-          <canvas
-            ref={canvasRef}
-            id="draw-canvas"
-            onMouseDown={startDraw}
-            onMouseMove={draw}
-            onMouseUp={stopDraw}
-            onMouseLeave={stopDraw}
-            onTouchStart={startDraw}
-            onTouchMove={draw}
-            onTouchEnd={stopDraw}
-          />
+        <div id="drawing-container" ref={containerRef}>
+          <div
+            ref={innerRef}
+            id="drawing-inner"
+            style={{ cursor: mode === 'draw' ? 'crosshair' : 'grab' }}
+            onMouseDown={onMouseDown}
+            onMouseMove={onMouseMove}
+            onMouseUp={onMouseUp}
+            onMouseLeave={onMouseUp}
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+          >
+            <img ref={imgRef} src={mikeImg} alt="Mike Stamm" id="modal-img" crossOrigin="anonymous" />
+            {ready && <canvas ref={canvasRef} id="draw-canvas" />}
+          </div>
         </div>
+
         <div id="toolbar">
           <div id="colors">
             {COLORS.map(c => (
@@ -123,7 +237,13 @@ function DrawingModal({ onClose }) {
               />
             ))}
           </div>
-          <button id="download-btn" onClick={download}>Download</button>
+          <button
+            id="mode-btn"
+            className={mode === 'move' ? 'active' : ''}
+            onClick={() => setMode(m => m === 'draw' ? 'move' : 'draw')}
+            title={mode === 'draw' ? 'Switch to pan/zoom' : 'Switch to draw'}
+          >{mode === 'draw' ? '✋' : '✏️'}</button>
+          <button id="download-btn" onClick={download}>Save</button>
           <button id="close-btn" onClick={onClose}>✕</button>
         </div>
       </div>
@@ -141,12 +261,7 @@ export default function App() {
         <Word text="Sucks" />
         <Word text=".com" />
       </div>
-      <img
-        src={mikeImg}
-        alt="Mike Stamm"
-        id="mike-img"
-        onClick={() => setModalOpen(true)}
-      />
+      <img src={mikeImg} alt="Mike Stamm" id="mike-img" onClick={() => setModalOpen(true)} />
       {modalOpen && <DrawingModal onClose={() => setModalOpen(false)} />}
     </div>
   )
