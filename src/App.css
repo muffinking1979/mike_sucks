@@ -1,18 +1,31 @@
 #container {
+  background: #000;
+  padding: 0 16px;
+}
+
+#words {
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  align-items: stretch;
-  min-height: 100dvh;
-  padding: 0 24px;
-  background: #000;
 }
 
-#container p {
+#words p {
   margin: 0;
+  font-size: 30vh;
+  font-weight: 900;
+  line-height: 0.95;
+  text-transform: uppercase;
+  color: #fff;
+  white-space: nowrap;
+  display: block;
+  transform-origin: left;
+}
+
+#dotcom {
+  margin: 16px 0 0;
   font-size: clamp(36px, 11vw, 90px);
   font-weight: 900;
-  line-height: 1.1;
   text-transform: uppercase;
   color: #fff;
   display: flex;
