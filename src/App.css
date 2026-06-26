@@ -1,0 +1,26 @@
+#container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: stretch;
+  min-height: 100dvh;
+  padding: 0 24px;
+  background: #000;
+}
+
+#container p {
+  margin: 0;
+  font-size: clamp(36px, 11vw, 90px);
+  font-weight: 900;
+  line-height: 1.1;
+  text-transform: uppercase;
+  color: #fff;
+  display: flex;
+  justify-content: space-between;
+}
+
+#mike-img {
+  width: 100%;
+  display: block;
+  margin-top: 16px;
+}
