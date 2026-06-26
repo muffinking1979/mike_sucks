@@ -1,6 +1,12 @@
 import { useRef, useEffect, useState } from 'react'
 import './App.css'
-import mikeImg from './assets/MSS.jpeg'
+import img1 from './assets/MSS.jpeg'
+import img2 from './assets/MSS2.jpeg'
+import img3 from './assets/MSS3.jpeg'
+import img4 from './assets/MSS4.jpeg'
+import img5 from './assets/MSS5.jpeg'
+
+const PHOTOS = [img1, img2, img3, img4, img5]
 
 function Word({ text }) {
   const ref = useRef()
@@ -19,7 +25,7 @@ const COLORS = [
 ]
 const ERASER = 'eraser'
 
-function DrawingModal({ onClose }) {
+function DrawingModal({ photo, onClose }) {
   const canvasRef   = useRef()
   const imgRef      = useRef()
   const containerRef = useRef()
@@ -226,7 +232,7 @@ function DrawingModal({ onClose }) {
             onTouchMove={onTouchMove}
             onTouchEnd={onTouchEnd}
           >
-            <img ref={imgRef} src={mikeImg} alt="Mike Stamm" id="modal-img" crossOrigin="anonymous" />
+            <img ref={imgRef} src={photo} alt="Mike Stamm" id="modal-img" crossOrigin="anonymous" />
             <canvas ref={canvasRef} id="draw-canvas" />
           </div>
         </div>
@@ -264,6 +270,10 @@ function DrawingModal({ onClose }) {
 
 export default function App() {
   const [modalOpen, setModalOpen] = useState(false)
+  const [selected, setSelected] = useState(0)
+
+  const openPhoto = (i) => { setSelected(i); setModalOpen(true) }
+
   return (
     <div id="container">
       <div id="words">
@@ -272,8 +282,32 @@ export default function App() {
         <Word text="Sucks" />
         <Word text=".com" />
       </div>
-      <img src={mikeImg} alt="Mike Stamm" id="mike-img" onClick={() => setModalOpen(true)} />
-      {modalOpen && <DrawingModal onClose={() => setModalOpen(false)} />}
+
+      <img
+        src={PHOTOS[selected]}
+        alt="Mike Stamm"
+        id="mike-img"
+        onClick={() => setModalOpen(true)}
+      />
+
+      <div id="gallery">
+        {PHOTOS.map((src, i) => (
+          <button
+            key={i}
+            className={'thumb' + (selected === i ? ' active' : '')}
+            onClick={() => openPhoto(i)}
+          >
+            <img src={src} alt={`Photo ${i + 1}`} />
+          </button>
+        ))}
+      </div>
+
+      {modalOpen && (
+        <DrawingModal
+          photo={PHOTOS[selected]}
+          onClose={() => setModalOpen(false)}
+        />
+      )}
     </div>
   )
 }
