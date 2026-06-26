@@ -60,6 +60,7 @@
   position: absolute;
   top: 0;
   left: 0;
+  width: 100%;
   transform-origin: top left;
   line-height: 0;
 }

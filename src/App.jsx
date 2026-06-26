@@ -42,13 +42,16 @@ function DrawingModal({ onClose }) {
   // ── setup ──────────────────────────────────────────────────────────────
   useEffect(() => {
     const img = imgRef.current
-    const init = () => {
-      canvasRef.current.width  = img.naturalWidth
-      canvasRef.current.height = img.naturalHeight
-      setReady(true)
-    }
+    const init = () => setReady(true)
     if (img.complete) init(); else img.onload = init
   }, [])
+
+  useEffect(() => {
+    if (!ready) return
+    const img = imgRef.current
+    canvasRef.current.width  = img.naturalWidth
+    canvasRef.current.height = img.naturalHeight
+  }, [ready])
 
   // ── helpers ────────────────────────────────────────────────────────────
   const applyTransform = () => {
@@ -221,7 +224,7 @@ function DrawingModal({ onClose }) {
             onTouchEnd={onTouchEnd}
           >
             <img ref={imgRef} src={mikeImg} alt="Mike Stamm" id="modal-img" crossOrigin="anonymous" />
-            {ready && <canvas ref={canvasRef} id="draw-canvas" />}
+            <canvas ref={canvasRef} id="draw-canvas" />
           </div>
         </div>
 
