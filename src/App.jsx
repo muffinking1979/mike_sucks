@@ -17,6 +17,7 @@ const COLORS = [
   { label: 'Blue',   value: '#1133ee' },
   { label: 'Yellow', value: '#ffdd00' },
 ]
+const ERASER = 'eraser'
 
 function DrawingModal({ onClose }) {
   const canvasRef   = useRef()
@@ -83,11 +84,13 @@ function DrawingModal({ onClose }) {
   const strokeTo = (pos) => {
     if (!lastPos.current) return
     const ctx = canvasRef.current.getContext('2d')
+    const erasing = colorRef.current === ERASER
+    ctx.globalCompositeOperation = erasing ? 'destination-out' : 'source-over'
     ctx.beginPath()
     ctx.moveTo(lastPos.current.x, lastPos.current.y)
     ctx.lineTo(pos.x, pos.y)
-    ctx.strokeStyle = colorRef.current
-    ctx.lineWidth   = 14
+    ctx.strokeStyle = erasing ? 'rgba(0,0,0,1)' : colorRef.current
+    ctx.lineWidth   = erasing ? 40 : 14
     ctx.lineCap     = 'round'
     ctx.lineJoin    = 'round'
     ctx.stroke()
@@ -239,6 +242,11 @@ function DrawingModal({ onClose }) {
                 aria-label={c.label}
               />
             ))}
+            <button
+              className={'swatch eraser' + (color === ERASER ? ' active' : '')}
+              onClick={() => setColor(ERASER)}
+              aria-label="Eraser"
+            >✕</button>
           </div>
           <button
             id="mode-btn"

@@ -109,6 +109,16 @@
   transform: scale(1.2);
 }
 
+.swatch.eraser {
+  background: #222 !important;
+  color: #fff;
+  font-size: 16px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 #mode-btn,
 #download-btn,
 #close-btn {
