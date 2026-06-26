@@ -1,4 +1,5 @@
 import './App.css'
+import mikeImg from './assets/MSS.jpeg'
 
 function Word({ text }) {
   return (
@@ -15,7 +16,7 @@ export default function App() {
       <Word text="Stamm" />
       <Word text="Sucks" />
       <Word text=".com" />
-      <img src="/MSS.jpeg" alt="Mike Stamm" id="mike-img" />
+      <img src={mikeImg} alt="Mike Stamm" id="mike-img" />
     </div>
   )
 }
