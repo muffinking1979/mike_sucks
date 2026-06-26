@@ -21,8 +21,8 @@ export default function App() {
         <Word text="Mike" />
         <Word text="Stamm" />
         <Word text="Sucks" />
+        <Word text=".com" />
       </div>
-      <p id="dotcom">.com</p>
       <img src={mikeImg} alt="Mike Stamm" id="mike-img" />
     </div>
   )

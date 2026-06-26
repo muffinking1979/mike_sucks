@@ -4,10 +4,8 @@
 }
 
 #words {
-  height: 100dvh;
   display: flex;
   flex-direction: column;
-  justify-content: center;
 }
 
 #words p {
@@ -20,16 +18,6 @@
   white-space: nowrap;
   display: block;
   transform-origin: left;
-}
-
-#dotcom {
-  margin: 16px 0 0;
-  font-size: clamp(36px, 11vw, 90px);
-  font-weight: 900;
-  text-transform: uppercase;
-  color: #fff;
-  display: flex;
-  justify-content: space-between;
 }
 
 #mike-img {
